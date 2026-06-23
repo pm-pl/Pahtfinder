@@ -24,14 +24,14 @@ namespace IvanCraft623\Pathfinder;
 
 final class BlockPathTypeCostMap {
 
-	/** @var array<int, float> */
+	/** @var array<string, float> */
 	private array $pathfindingMalus = [];
 
 	public function getPathfindingMalus(BlockPathType $pathType) : float{
-		return $this->pathfindingMalus[$pathType->id()] ?? $pathType->getMalus();
+		return $this->pathfindingMalus[$pathType->name] ?? $pathType->getMalus();
 	}
 
 	public function setPathfindingMalus(BlockPathType $pathType, float $malus) : void{
-		$this->pathfindingMalus[$pathType->id()] = $malus;
+		$this->pathfindingMalus[$pathType->name] = $malus;
 	}
 }
