@@ -35,6 +35,7 @@ use pocketmine\world\Position;
 use pocketmine\world\World;
 
 use function array_reverse;
+use function floor;
 use function igbinary_serialize;
 use function max;
 use function min;
@@ -60,7 +61,11 @@ class PathFinder {
 		$evaluator->prepare(new SyncBlockGetter($world), $position);
 		$startNode = $evaluator->getStart();
 
-		$actualTarget = $evaluator->getGoal((int) $target->x, (int) $target->y, (int) $target->z);
+		$actualTarget = $evaluator->getGoal(
+			(int) floor($target->getX()),
+			(int) floor($target->getY()),
+			(int) floor($target->getZ())
+		);
 		$result = static::actuallyFindPath($evaluator, $startNode, $actualTarget, $maxVisitedNodes, $maxDistanceFromStart, $reachRange);
 
 		$evaluator->done();

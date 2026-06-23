@@ -68,7 +68,7 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 	public function getStart() : Node{
 		$position = clone $this->startPosition;
 
-		$y = (int) $position->y;
+		$y = (int) floor($position->y);
 		$block = $this->blockGetter->getBlock($position);
 
 		if (!($block instanceof Liquid && $this->canStandOnFluid($block))) {
@@ -78,7 +78,7 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 						--$y;
 						break;
 					}
-					$block = $this->blockGetter->getBlockAt((int) $position->x, ++$y, (int) $position->z);
+					$block = $this->blockGetter->getBlockAt((int) floor($position->x), ++$y, (int) floor($position->z));
 				}
 			} elseif ($this->isEntityOnGround()) {
 				$y = (int) floor($this->startPosition->y + 0.5);
