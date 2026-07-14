@@ -74,7 +74,7 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 		if (!($block instanceof Liquid && $this->canStandOnFluid($block))) {
 			if ($this->canFloat() && $this->isEntityUnderwater() && $block instanceof Water) {
 				while (true) {
-					if (!($block instanceof Water && $block->isSource())) {
+					if (!$block instanceof Water) {
 						--$y;
 						break;
 					}
@@ -83,9 +83,9 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 			} elseif ($this->isEntityOnGround()) {
 				$y = (int) floor($this->startPosition->y + 0.5);
 			} else {
-				$pos = $this->startPosition->floor();
+				$pos = new Vector3((int) floor($this->startPosition->x), (int) floor($this->startPosition->y) + 1, (int) floor($this->startPosition->z));
 
-				while ((($b = $this->blockGetter->getBlock($pos))->getTypeId() === BlockTypeIds::AIR || Utils::isPathfindable($b,PathComputationType::LAND())) && $pos->y > World::Y_MIN) {
+				while ((($b = $this->blockGetter->getBlock($pos))->getTypeId() === BlockTypeIds::AIR || Utils::isPathfindable($b, PathComputationType::LAND())) && $pos->y > World::Y_MIN) {
 					$pos = $pos->down();
 				}
 
@@ -272,20 +272,20 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 				$resultNode = $this->findAcceptedNode($x, $y + 1, $z, $remainingJumpHeight - 1, $floorLevel, $facing, $originPathType);
 				$width = $this->entitySizeInfo->getWidth();
 				if ($resultNode !== null &&
-					($resultNode->type->equals(BlockPathType::OPEN) || $resultNode->type->equals(BlockPathType::WALKABLE)) &&
-					$width < 1
+					($resultNode->type->equals(BlockPathType::OPEN) || $resultNode->type->equals(BlockPathType::WALKABLE))
 				) {
 					$halfWidth = $width / 2;
 					$sidePos = $pos->getSide($facing)->add(0.5, 0, 0.5);
 					$y1 = $this->getFloorLevel(new Vector3($sidePos->x, $y + 1, $sidePos->z));
 					$y2 = $this->getFloorLevel(new Vector3($resultNode->x, $resultNode->y, $resultNode->z));
+					$originSidePos = $pos->add(0.5, 0, 0.5);
 					$bb = new AxisAlignedBB(
-						minX: $sidePos->x - $halfWidth,
+						minX: min($sidePos->x, $originSidePos->x) - $halfWidth,
 						minY: min($y1, $y2) + 0.001,
-						minZ: $sidePos->z - $halfWidth,
-						maxX: $sidePos->x + $halfWidth,
+						minZ: min($sidePos->z, $originSidePos->z) - $halfWidth,
+						maxX: max($sidePos->x, $originSidePos->x) + $halfWidth,
 						maxY: $this->entitySizeInfo->getHeight() + max($y1, $y2) - 0.002,
-						maxZ: $sidePos->z + $halfWidth
+						maxZ: max($sidePos->z, $originSidePos->z) + $halfWidth
 					);
 					if ($this->hasCollisions($bb)) {
 						$resultNode = null;
@@ -467,20 +467,26 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 
 		if ($pathType->equals(BlockPathType::OPEN) && $y >= World::Y_MIN + 1) {
 			$pathTypeDown = static::getBlockPathTypeRaw($blockGetter, $x, $y - 1, $z);
-			$pathType = (!$pathTypeDown->equals(BlockPathType::WALKABLE) &&
-				!$pathTypeDown->equals(BlockPathType::OPEN) &&
-				!$pathTypeDown->equals(BlockPathType::WATER) &&
-				!$pathTypeDown->equals(BlockPathType::LAVA)
-			) ? BlockPathType::WALKABLE : BlockPathType::OPEN;
 
-			foreach ([
-				[BlockPathType::DAMAGE_FIRE, BlockPathType::DAMAGE_FIRE],
-				[BlockPathType::DAMAGE_OTHER, BlockPathType::DAMAGE_OTHER],
-				[BlockPathType::STICKY_HONEY, BlockPathType::STICKY_HONEY],
-				[BlockPathType::POWDER_SNOW, BlockPathType::DANGER_POWDER_SNOW],
-			] as $pathMap) {
-				if ($pathTypeDown->equals($pathMap[0])) {
-					$pathType = $pathMap[1];
+			if ($pathTypeDown->equals(BlockPathType::OPEN) ||
+				$pathTypeDown->equals(BlockPathType::WATER) ||
+				$pathTypeDown->equals(BlockPathType::LAVA) ||
+				$pathTypeDown->equals(BlockPathType::WALKABLE)
+			) {
+				// Block below is passable/fluid — we are floating above it
+				$pathType = BlockPathType::OPEN;
+			} else {
+				// Block below is solid-ish — check for hazard overrides first, then fall back to WALKABLE
+				if ($pathTypeDown->equals(BlockPathType::DAMAGE_FIRE)) {
+					$pathType = BlockPathType::DAMAGE_FIRE;
+				} elseif ($pathTypeDown->equals(BlockPathType::DAMAGE_OTHER)) {
+					$pathType = BlockPathType::DAMAGE_OTHER;
+				} elseif ($pathTypeDown->equals(BlockPathType::STICKY_HONEY)) {
+					$pathType = BlockPathType::STICKY_HONEY;
+				} elseif ($pathTypeDown->equals(BlockPathType::POWDER_SNOW)) {
+					$pathType = BlockPathType::DANGER_POWDER_SNOW;
+				} else {
+					$pathType = BlockPathType::WALKABLE;
 				}
 			}
 		}
