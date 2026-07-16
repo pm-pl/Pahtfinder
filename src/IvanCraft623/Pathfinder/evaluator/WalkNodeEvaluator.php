@@ -46,6 +46,7 @@ use pocketmine\block\WoodenDoor;
 use pocketmine\math\AxisAlignedBB;
 use pocketmine\math\Facing;
 use pocketmine\math\Vector3;
+use pocketmine\utils\Limits;
 use pocketmine\world\World;
 use function ceil;
 use function floor;
@@ -105,7 +106,12 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 	}
 
 	protected function getStartNode(Vector3 $position) : Node{
-		$node = $this->getNode($position);
+		$node = $this->getNodeAt(
+			(int) max(Limits::INT32_MIN, min(Limits::INT32_MAX, (int) floor($position->x))),
+			(int) max($this->blockGetter->minY, min($this->blockGetter->maxY - 1, (int) floor($position->y))),
+			(int) max(Limits::INT32_MIN, min(Limits::INT32_MAX, (int) floor($position->z)))
+		);
+
 		$node->type = $this->getCachedBlockPathType($this->blockGetter, $node->x(), $node->y(), $node->z());
 		$node->costMalus = $this->pathTypeCostMap->getPathfindingMalus($node->type);
 
@@ -113,7 +119,11 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 	}
 
 	public function getGoal(float $x, float $y, float $z) : Target{
-		return $this->getTargetFromNode($this->getNodeAt((int) floor($x), (int) floor($y), (int) floor($z)));
+		return $this->getTargetFromNode($this->getNodeAt(
+			(int) max(Limits::INT32_MIN, min(Limits::INT32_MAX, (int) floor($x))),
+			(int) max($this->blockGetter->minY, min($this->blockGetter->maxY - 1, (int) floor($y))),
+			(int) max(Limits::INT32_MIN, min(Limits::INT32_MAX, (int) floor($z)))
+		));
 	}
 
 	/**
@@ -124,7 +134,10 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 		$maxUpStep = 0;
 
 		$pathType = $this->getCachedBlockPathType($this->blockGetter, $node->x(), $node->y(), $node->z());
-		$pathTypeAbove = $this->getCachedBlockPathType($this->blockGetter, $node->x(), $node->y() + 1, $node->z());
+		$aboveY = $node->y() + 1;
+		$pathTypeAbove = $this->blockGetter->isInWorld($node->x(), $aboveY, $node->z())
+			? $this->getCachedBlockPathType($this->blockGetter, $node->x(), $aboveY, $node->z())
+			: BlockPathType::BLOCKED;
 
 		if ($this->pathTypeCostMap->getPathfindingMalus($pathTypeAbove) >= 0 && !$pathType->equals(BlockPathType::STICKY_HONEY)) {
 			$maxUpStep = (int) floor(max(1, $this->getMaxUpStep()));
@@ -240,6 +253,10 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 	}
 
 	public function findAcceptedNode(int $x, int $y, int $z, int $remainingJumpHeight, float $floorLevel, int $facing, BlockPathType $originPathType) : ?Node{
+		if (!$this->blockGetter->isInWorld($x, $y, $z)) {
+			return null;
+		}
+
 		$resultNode = null;
 		$pos = new Vector3($x, $y, $z);
 
@@ -294,7 +311,9 @@ class WalkNodeEvaluator extends EntityNodeEvaluator {
 			}
 
 			if (!$this->isAmphibious() && $currentPathType->equals(BlockPathType::WATER) && !$this->canFloat()) {
-				if (!$this->getCachedBlockPathType($this->blockGetter, $x, $y - 1, $z)->equals(BlockPathType::WATER)) {
+				if ($y - 1 < $this->blockGetter->minY ||
+					!$this->getCachedBlockPathType($this->blockGetter, $x, $y - 1, $z)->equals(BlockPathType::WATER)
+				) {
 					return $resultNode;
 				}
 

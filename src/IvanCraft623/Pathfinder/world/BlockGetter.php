@@ -30,7 +30,10 @@ use function floor;
 
 abstract class BlockGetter {
 
-	public function __construct(protected int $minY, protected int $maxY){
+	public function __construct(
+		readonly int $minY,
+		readonly int $maxY
+	){
 	}
 
 	abstract public function getBlockAt(int $x, int $y, int $z, bool $cached = true, bool $addToCache = true) : Block;

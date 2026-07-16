@@ -63,20 +63,22 @@ class AsyncBlockGetter extends BlockGetter{
 	}
 
 	public function getBlockAt(int $x, int $y, int $z, bool $cached = true, bool $addToCache = true) : Block{
-		$blockHash = World::blockHash($x, $y, $z);
-		if ($cached && isset($this->blocksCache[$blockHash])) {
-			return $this->blocksCache[$blockHash];
-		}
-
-		if(!$this->isInWorld($x, $y, $z)) {
+		if (!$this->isInWorld($x, $y, $z)) {
 			$block = VanillaBlocks::AIR();
 			$addToCache = false;
-		} elseif (($chunk = $this->getChunkAt($x, $z)) === null) {
-			$block = VanillaBlocks::AIR();
 		} else {
-			$block = RuntimeBlockStateRegistry::getInstance()->fromStateId(
-				$chunk->getBlockStateId($x & Chunk::COORD_MASK, $y, $z & Chunk::COORD_MASK)
-			);
+			$blockHash = World::blockHash($x, $y, $z);
+			if ($cached && isset($this->blocksCache[$blockHash])) {
+				return $this->blocksCache[$blockHash];
+			}
+
+			if (($chunk = $this->getChunkAt($x, $z)) === null) {
+				$block = VanillaBlocks::AIR();
+			} else {
+				$block = RuntimeBlockStateRegistry::getInstance()->fromStateId(
+					$chunk->getBlockStateId($x & Chunk::COORD_MASK, $y, $z & Chunk::COORD_MASK)
+				);
+			}
 		}
 
 		$this->positionBlock($block, new Position($x, $y, $z, null));
@@ -95,7 +97,7 @@ class AsyncBlockGetter extends BlockGetter{
 		}
 
 		if ($addToCache) {
-			$this->blocksCache[$blockHash] = $block;
+			$this->blocksCache[World::blockHash($x, $y, $z)] = $block;
 		}
 
 		return $block;

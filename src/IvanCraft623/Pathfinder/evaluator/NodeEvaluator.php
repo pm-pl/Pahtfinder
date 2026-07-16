@@ -68,6 +68,10 @@ abstract class NodeEvaluator {
 	}
 
 	public function getNodeAt(int $x, int $y, int $z) : Node{
+		if (!$this->blockGetter->isInWorld($x, $y, $z)) {
+			throw new \InvalidArgumentException("Position ($x, $y, $z) is out of world bounds!");
+		}
+
 		$hash = Node::createHash($x, $y, $z);
 		if (!isset($this->nodes[$hash])) {
 			$this->nodes[$hash] = new Node($x, $y, $z);
